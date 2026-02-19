@@ -22,7 +22,6 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
-import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -48,7 +47,7 @@ public class SecurityConfig {
 
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
-        return new JwtAuthenticationFilter();
+        return new JwtAuthenticationFilter();  // <-- Simple, bina parameters ke
     }
 
     @Bean
@@ -58,41 +57,50 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
-                        // Public endpoints
-                        .requestMatchers(HttpMethod.POST, "/auth/register", "/auth/login").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/auth/refresh").permitAll()
-                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                        .requestMatchers("/health").permitAll()
+                        // Public endpoints - SAARE AUTH ENDPOINTS PERMIT (with and without /api)
+                        .requestMatchers("/api/auth/**", "/auth/**").permitAll()
 
-                        // Assessment endpoints
-                        .requestMatchers(HttpMethod.GET, "/assessments/questions").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/assessments/submit").hasRole("USER")
-                        .requestMatchers(HttpMethod.GET, "/assessments/my/**").hasRole("USER")
+                        // Swagger UI endpoints
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+
+                        // Health check
+                        .requestMatchers("/health", "/actuator/health").permitAll()
+
+                        // Assessment endpoints - public GET, protected POST
+                        .requestMatchers(HttpMethod.GET, "/api/assessments/questions", "/assessments/questions").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/assessments/submit", "/assessments/submit").hasRole("USER")
+                        .requestMatchers(HttpMethod.GET, "/api/assessments/my/**", "/assessments/my/**").hasRole("USER")
 
                         // Career endpoints (public read)
-                        .requestMatchers(HttpMethod.GET, "/careers/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/careers/**", "/careers/**").permitAll()
 
                         // Learning path and resource endpoints (public read)
-                        .requestMatchers(HttpMethod.GET, "/learning-paths/**", "/resources/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/learning-paths/**", "/learning-paths/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/resources/**", "/resources/**").permitAll()
 
-                        // Recommendations endpoints
-                        .requestMatchers(HttpMethod.GET, "/recommendations/**").hasRole("USER")
+                        // Recommendations endpoints (require authentication)
+                        .requestMatchers(HttpMethod.GET, "/api/recommendations/**", "/recommendations/**").hasRole("USER")
 
-                        // Admin endpoints
-                        .requestMatchers("/admin/**").hasRole("ADMIN")
+                        // Admin endpoints (require ADMIN role)
+                        .requestMatchers("/api/admin/**", "/admin/**").hasRole("ADMIN")
 
                         // All other requests require authentication
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint((request, response, authException) -> {
-                            response.sendError(401, "Unauthorized");
+                            response.setStatus(401);
+                            response.setContentType("application/json");
+                            response.getWriter().write("{\"error\": \"Unauthorized\", \"message\": \"" + authException.getMessage() + "\"}");
                         })
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
-                            response.sendError(403, "Forbidden");
+                            response.setStatus(403);
+                            response.setContentType("application/json");
+                            response.getWriter().write("{\"error\": \"Forbidden\", \"message\": \"You don't have permission to access this resource\"}");
                         })
                 );
 
+        // Add JWT filter before UsernamePasswordAuthenticationFilter
         http.addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -101,10 +109,41 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "http://localhost:3000"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("*"));
+
+        // Allow multiple frontend origins
+        configuration.setAllowedOrigins(Arrays.asList(
+                "http://localhost:8081",  // Tumhara frontend port
+                "http://localhost:5173",   // Vite default
+                "http://localhost:3000",   // React default
+                "http://127.0.0.1:8081",
+                "http://127.0.0.1:5173",
+                "http://127.0.0.1:3000"
+        ));
+
+        // Allow all HTTP methods
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+
+        // Allow all headers
+        configuration.setAllowedHeaders(Arrays.asList(
+                "Authorization",
+                "Content-Type",
+                "X-Requested-With",
+                "Accept",
+                "Origin",
+                "Access-Control-Request-Method",
+                "Access-Control-Request-Headers"
+        ));
+
+        // Allow credentials (cookies, authorization headers)
         configuration.setAllowCredentials(true);
+
+        // Expose these headers to the frontend
+        configuration.setExposedHeaders(Arrays.asList(
+                "Authorization",
+                "Content-Disposition"
+        ));
+
+        // Cache preflight response for 1 hour
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

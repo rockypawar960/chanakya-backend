@@ -10,4 +10,6 @@ import java.util.List;
 public interface RecommendationRepository extends JpaRepository<Recommendation, Long> {
     List<Recommendation> findByUserIdAndIsActiveTrue(Long userId);
     List<Recommendation> findByAssessmentIdAndIsActiveTrue(Long assessmentId);
+    List<Recommendation> findByAssessmentIdAndIsActiveTrueOrderByMatchScoreDesc(Long assessmentId);
+    List<Recommendation> findByUserIdAndIsActiveTrueOrderByMatchScoreDesc(Long userId);
 }

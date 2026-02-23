@@ -1,10 +1,7 @@
 package com.chanakya.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -23,17 +20,30 @@ public class Assessment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    // User who gave assessment
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    // Raw answers JSON (matches DB column: raw_responses)
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "jsonb")
-    private Map<String, Object> answers;  // Store answers as JSON
+    @Column(name = "raw_responses", columnDefinition = "json")
+    private Map<String, Object> answers;
+
+    // Calculated bucket scores JSON
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "bucket_scores", columnDefinition = "json")
+    private Map<String, Integer> bucketScores;
 
     private Integer totalScore;
 
     private LocalDateTime completedAt;
 
-    private Boolean isActive;
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
+
+    @PrePersist
+    protected void onCreate() {
+        completedAt = LocalDateTime.now();
+    }
 }

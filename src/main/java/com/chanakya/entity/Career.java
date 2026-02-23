@@ -1,12 +1,10 @@
 package com.chanakya.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "careers")
@@ -42,7 +40,11 @@ public class Career {
     private String topCompanies;
 
     @Column(name = "popularity_score")
-    private Integer popularityScore; // 1-10 rating
+    private Integer popularityScore;
+
+    // 🔥 IMPORTANT: Link to CareerAttribute
+    @OneToMany(mappedBy = "career", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private List<CareerAttribute> careerAttributes;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

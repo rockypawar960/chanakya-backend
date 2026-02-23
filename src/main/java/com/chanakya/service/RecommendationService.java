@@ -1,19 +1,14 @@
 package com.chanakya.service;
 
 import com.chanakya.dto.RecommendationDTO;
-import com.chanakya.entity.Assessment;
-import com.chanakya.entity.Career;
-import com.chanakya.entity.Recommendation;
-import com.chanakya.entity.User;
-import com.chanakya.exception.ResourceNotFoundException;
-import com.chanakya.repository.CareerRepository;
-import com.chanakya.repository.RecommendationRepository;
+import com.chanakya.entity.*;
+import com.chanakya.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,101 +19,103 @@ public class RecommendationService {
 
     private final CareerRepository careerRepository;
     private final RecommendationRepository recommendationRepository;
+    private final CareerAttributeRepository careerAttributeRepository;
 
-    /**
-     * Generate recommendations based on assessment
-     */
     public List<RecommendationDTO> generateRecommendations(Assessment assessment) {
-        log.info("Generating recommendations for assessment id: {}", assessment.getId());
 
-        try {
-            // Get top careers based on popularity
-            List<Career> topCareers = careerRepository.findTop5ByIsActiveTrueOrderByPopularityScoreDesc();
+        Map<String, Integer> userBuckets = assessment.getBucketScores();
 
-            if (topCareers.isEmpty()) {
-                log.warn("No careers found in database");
-                return List.of();
-            }
+        List<Career> careers =
+                careerRepository.findTop5ByIsActiveTrueOrderByPopularityScoreDesc();
 
-            // Create recommendations for each career
-            List<Recommendation> recommendations = topCareers.stream()
-                    .map(career -> createRecommendation(assessment, career))
-                    .collect(Collectors.toList());
+        List<Recommendation> recommendations = new ArrayList<>();
 
-            // Save all recommendations
-            List<Recommendation> savedRecommendations = recommendationRepository.saveAll(recommendations);
-            log.info("Generated {} recommendations for assessment id: {}", savedRecommendations.size(), assessment.getId());
+        for (Career career : careers) {
 
-            // Convert to DTOs and return
-            return savedRecommendations.stream()
-                    .map(this::mapToDTO)
-                    .collect(Collectors.toList());
+            double matchScore = calculateMatchScore(userBuckets, career);
 
-        } catch (Exception e) {
-            log.error("Error generating recommendations: {}", e.getMessage(), e);
-            return List.of();
+            Recommendation recommendation = Recommendation.builder()
+                    .user(assessment.getUser())
+                    .assessment(assessment)
+                    .career(career)
+                    .matchScore(matchScore)
+                    .reasoning(generateReasoning(userBuckets))
+                    .isActive(true)
+                    .build();
+
+            recommendations.add(recommendation);
         }
+
+        // Sort by highest score
+        recommendations.sort((a, b) ->
+                Double.compare(b.getMatchScore(), a.getMatchScore()));
+
+        // Keep top 3 only
+        recommendations = recommendations.stream().limit(3).toList();
+
+        recommendationRepository.saveAll(recommendations);
+
+        return recommendations.stream().map(this::mapToDTO).toList();
     }
 
-    /**
-     * Get recommendations by user ID
-     */
-    public List<RecommendationDTO> getRecommendationsByUserId(Long userId) {
-        log.info("Fetching recommendations for user id: {}", userId);
 
-        return recommendationRepository.findByUserIdAndIsActiveTrue(userId)
-                .stream()
-                .map(this::mapToDTO)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Get recommendations by assessment ID
-     */
     public List<RecommendationDTO> getRecommendationsByAssessmentId(Long assessmentId) {
-        log.info("Fetching recommendations for assessment id: {}", assessmentId);
 
-        return recommendationRepository.findByAssessmentIdAndIsActiveTrue(assessmentId)
-                .stream()
+        List<Recommendation> recommendations =
+                recommendationRepository
+                        .findByAssessmentIdAndIsActiveTrueOrderByMatchScoreDesc(assessmentId);
+
+        return recommendations.stream()
                 .map(this::mapToDTO)
-                .collect(Collectors.toList());
+                .toList();
     }
 
-    /**
-     * Create recommendation entity
-     */
-    private Recommendation createRecommendation(Assessment assessment, Career career) {
-        return Recommendation.builder()
-                .user(assessment.getUser())
-                .assessment(assessment)
-                .career(career)
-                .matchScore(calculateMatchScore(assessment, career))
-                .reasoning("Based on your assessment responses, this career matches your profile.")
-                .isActive(true)
-                .build();
+    public List<RecommendationDTO> getRecommendationsByUserId(Long userId) {
+
+        List<Recommendation> recommendations =
+                recommendationRepository
+                        .findByUserIdAndIsActiveTrueOrderByMatchScoreDesc(userId);
+
+        return recommendations.stream()
+                .map(this::mapToDTO)
+                .toList();
+    }
+    private double calculateMatchScore(Map<String, Integer> userBuckets, Career career) {
+
+        List<CareerAttribute> attributes =
+                careerAttributeRepository.findByCareerIdAndIsActiveTrue(career.getId());
+
+        double score = 0;
+        double maxScore = 0;
+
+        for (CareerAttribute attr : attributes) {
+
+            String bucketName = attr.getBucket().getName();
+            int weight = attr.getWeight();
+
+            int userScore = userBuckets.getOrDefault(bucketName, 0);
+
+            score += userScore * weight;
+            maxScore += 100 * weight;
+        }
+
+        if (maxScore == 0) return 0;
+
+        return (score / maxScore) * 100;
     }
 
-    /**
-     * Calculate match score between assessment and career
-     */
-    private Double calculateMatchScore(Assessment assessment, Career career) {
-        // TODO: Implement actual matching algorithm based on assessment answers
-        // This is a placeholder - generate random score between 70-95
-        return 70.0 + (Math.random() * 25);
+    private String generateReasoning(Map<String, Integer> buckets) {
+        return "This career aligns strongly with your dominant interest areas.";
     }
 
-    /**
-     * Map Recommendation entity to DTO
-     */
-    private RecommendationDTO mapToDTO(Recommendation recommendation) {
+    private RecommendationDTO mapToDTO(Recommendation r) {
         return RecommendationDTO.builder()
-                .id(recommendation.getId())
-                .userId(recommendation.getUser().getId())
-                .careerId(recommendation.getCareer().getId())
-                .careerName(recommendation.getCareer().getName())
-                .matchScore(recommendation.getMatchScore())
-                .reasoning(recommendation.getReasoning())
-                .isActive(recommendation.getIsActive())
+                .id(r.getId())
+                .careerId(r.getCareer().getId())
+                .careerName(r.getCareer().getName())
+                .matchScore(r.getMatchScore())
+                .reasoning(r.getReasoning())
+                .isActive(r.getIsActive())
                 .build();
     }
 }

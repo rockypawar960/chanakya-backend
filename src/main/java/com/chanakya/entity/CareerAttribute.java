@@ -1,10 +1,7 @@
 package com.chanakya.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Table(name = "career_attributes")
@@ -18,15 +15,19 @@ public class CareerAttribute {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Career link
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "career_id", nullable = false)
     private Career career;
 
-    @Column(nullable = false)
-    private String attributeName; // e.g., "Problem Solving", "Creativity"
+    // Bucket link
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "bucket_id", nullable = false)
+    private Bucket bucket;
 
+    // Importance weight (1–10)
     @Column(nullable = false)
-    private Integer weight; // Weight/importance (1-10)
+    private Integer weight;
 
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;

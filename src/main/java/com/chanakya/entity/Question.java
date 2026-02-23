@@ -1,12 +1,10 @@
 package com.chanakya.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "questions")
@@ -26,6 +24,9 @@ public class Question {
     @Column(name = "question_type", nullable = false)
     private String questionType; // MULTIPLE_CHOICE, RATING, TEXT
 
+    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    private List<QuestionOption> options;
+
     @Column(nullable = false)
     private Integer sequenceNumber;
 
@@ -37,6 +38,11 @@ public class Question {
 
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
+
+    // Each question belongs to one bucket
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "bucket_id", nullable = false)
+    private Bucket bucket;
 
     @PrePersist
     protected void onCreate() {

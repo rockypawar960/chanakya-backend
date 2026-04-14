@@ -24,25 +24,12 @@ public class Career {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(columnDefinition = "TEXT")
-    private String requiredSkills;
-
-    @Column(columnDefinition = "TEXT")
-    private String jobScope;
-
-    @Column(columnDefinition = "TEXT")
-    private String salaryRange;
-
-    @Column(columnDefinition = "TEXT")
-    private String educationPath;
-
-    @Column(columnDefinition = "TEXT")
-    private String topCompanies;
-
-    @Column(name = "popularity_score")
+    @Column(name = "popularity_score", nullable = false)
     private Integer popularityScore;
 
-    // 🔥 IMPORTANT: Link to CareerAttribute
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
+
     @OneToMany(mappedBy = "career", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<CareerAttribute> careerAttributes;
 
@@ -51,9 +38,6 @@ public class Career {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-    @Column(name = "is_active", nullable = false)
-    private Boolean isActive = true;
 
     @PrePersist
     protected void onCreate() {

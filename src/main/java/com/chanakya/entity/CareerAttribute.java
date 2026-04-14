@@ -4,7 +4,10 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "career_attributes")
+@Table(
+        name = "career_attributes",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"career_id", "bucket_id"})
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -15,19 +18,16 @@ public class CareerAttribute {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Career link
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "career_id", nullable = false)
     private Career career;
 
-    // Bucket link
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "bucket_id", nullable = false)
     private Bucket bucket;
 
-    // Importance weight (1–10)
     @Column(nullable = false)
-    private Integer weight;
+    private Integer weight; // 1–10
 
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;

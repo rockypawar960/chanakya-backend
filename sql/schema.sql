@@ -68,21 +68,23 @@ CREATE TABLE IF NOT EXISTS question_options (
 
 -- Careers Table
 CREATE TABLE IF NOT EXISTS careers (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(100) NOT NULL UNIQUE,
-    description TEXT,
-    required_skills TEXT,
-    job_scope TEXT,
-    salary_range VARCHAR(100),
-    education_path TEXT,
-    top_companies TEXT,
-    popularity_score INT,
-    is_active BOOLEAN DEFAULT true,
+    id BIGINT AUTO_INCREMENT,
+
+    name VARCHAR(150) NOT NULL,
+    description TEXT NOT NULL,
+
+    popularity_score INT NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT pk_careers PRIMARY KEY (id),
     CONSTRAINT uk_career_name UNIQUE (name),
-    INDEX idx_popularity (popularity_score),
-    INDEX idx_is_active (is_active)
+    CONSTRAINT chk_popularity_score CHECK (popularity_score >= 0),
+
+    INDEX idx_active_popularity (is_active, popularity_score)
 );
 
 -- Career Attributes Table
@@ -98,6 +100,7 @@ CREATE TABLE IF NOT EXISTS career_attributes (
 
 -- Assessments Table
 CREATE TABLE IF NOT EXISTS assessments (
+
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     user_id BIGINT NOT NULL,
     total_score INT NOT NULL,
@@ -128,21 +131,96 @@ CREATE TABLE IF NOT EXISTS recommendations (
 );
 
 -- Learning Paths Table
-CREATE TABLE IF NOT EXISTS learning_paths (
+--learning_paths (Parent Table)
+
+ --Ye table overview store karega
+
+CREATE TABLE learning_paths (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     career_id BIGINT NOT NULL,
-    path_name VARCHAR(100) NOT NULL,
+
+    path_name VARCHAR(150) NOT NULL,
     description TEXT,
-    skills TEXT,
-    resources TEXT,
-    sequence_number INT,
     duration_months INT,
+
     is_active BOOLEAN DEFAULT true,
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_path_career FOREIGN KEY (career_id) REFERENCES careers(id) ON DELETE CASCADE,
-    INDEX idx_career_id (career_id),
-    INDEX idx_sequence (sequence_number)
+
+    CONSTRAINT fk_path_career
+    FOREIGN KEY (career_id) REFERENCES careers(id) ON DELETE CASCADE,
+
+    INDEX idx_career_id (career_id)
+);
+
+--************************learning_steps (Child Table)
+
+-- Ye table actual steps / roadmap store karega
+
+CREATE TABLE learning_steps (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+
+    learning_path_id BIGINT NOT NULL,
+
+    level ENUM('beginner','intermediate','advanced') NOT NULL,
+
+    step_name VARCHAR(255) NOT NULL,
+    description TEXT,
+
+    video_link TEXT,
+    task TEXT,
+
+    step_order INT NOT NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_step_path
+    FOREIGN KEY (learning_path_id) REFERENCES learning_paths(id) ON DELETE CASCADE,
+
+    INDEX idx_path_id (learning_path_id),
+    INDEX idx_order (step_order));
+
+    -- Tracker
+
+CREATE TABLE user_progress (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+
+    user_id BIGINT NOT NULL,
+    learning_step_id BIGINT NOT NULL,
+
+    status ENUM('not_started','in_progress','completed') DEFAULT 'not_started',
+
+    started_at TIMESTAMP NULL,
+    completed_at TIMESTAMP NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_progress_user
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+
+    CONSTRAINT fk_progress_step
+    FOREIGN KEY (learning_step_id) REFERENCES learning_steps(id) ON DELETE CASCADE,
+
+    UNIQUE KEY unique_user_step (user_id, learning_step_id),
+
+    INDEX idx_user (user_id),
+    INDEX idx_step (learning_step_id)
+);
+
+--**************** steps completion track karne ke liye******************************
+CREATE TABLE user_step_progress (
+        id BIGINT PRIMARY KEY AUTO_INCREMENT,
+
+        user_id BIGINT NOT NULL,
+        step_id BIGINT NOT NULL,
+
+        completed BOOLEAN DEFAULT FALSE,
+
+        completed_at TIMESTAMP NULL,
+
+        UNIQUE KEY unique_user_step (user_id, step_id)
 );
 
 -- Resources Table

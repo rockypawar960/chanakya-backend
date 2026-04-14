@@ -37,6 +37,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
+        String path = request.getRequestURI();
+
+        if (path.contains("/auth/forgot-password") ||
+                path.contains("/auth/reset-password") ||
+                path.contains("/auth/validate-token")) {
+
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         try {
             String jwt = getJwtFromRequest(request);
 

@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -13,10 +15,13 @@ public class LearningPathDTO {
 
     private Long id;
     private Long careerId;
+
     private String pathName;
     private String description;
-    private String skills;
-    private String resources;
+
     private Integer sequenceNumber;
     private Integer durationMonths;
+
+    // 🔥 important
+    private List<LearningStepDTO> steps;
 }

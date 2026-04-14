@@ -8,5 +8,6 @@ import java.util.List;
 
 @Repository
 public interface LearningPathRepository extends JpaRepository<LearningPath, Long> {
-    List<LearningPath> findByCareerIdAndIsActiveTrueOrderBySequenceNumber(Long careerId);
+
+    List<LearningPath> findByCareerId(Long careerId);
 }

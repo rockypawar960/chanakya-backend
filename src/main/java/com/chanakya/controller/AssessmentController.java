@@ -4,12 +4,16 @@ import com.chanakya.dto.ApiResponse;
 import com.chanakya.dto.AssessmentRequest;
 import com.chanakya.dto.QuestionDTO;
 import com.chanakya.entity.Assessment;
+import com.chanakya.entity.User;
+import com.chanakya.repository.UserRepository;
 import com.chanakya.service.AssessmentService;
+import com.chanakya.service.RecommendationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -25,6 +29,10 @@ import java.util.List;
 public class AssessmentController {
 
     private final AssessmentService assessmentService;
+    private final UserRepository userRepository;
+    @Autowired
+    RecommendationService recommendationService;
+
 
     @GetMapping("/questions")
     @Operation(summary = "Get all assessment questions", description = "Fetch all active questions for the assessment")
@@ -42,13 +50,14 @@ public class AssessmentController {
     }
 
     @PostMapping("/submit")
-    @Operation(summary = "Submit assessment", description = "Submit completed assessment and get recommendations")
-    @SecurityRequirement(name = "Bearer")
     public ResponseEntity<ApiResponse<Assessment>> submitAssessment(
             @Valid @RequestBody AssessmentRequest request) {
 
         Long userId = extractUserIdFromAuthentication();
         Assessment assessment = assessmentService.submitAssessment(userId, request);
+
+        // 🔥 ZAROORI: Submit ke turant baad recommendations generate karein
+        recommendationService.generateRecommendations(assessment);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponse.<Assessment>builder()
@@ -105,11 +114,54 @@ public class AssessmentController {
         );
     }
 
+
+    // AssessmentController.java ke andar ye method add karein
+    @GetMapping("/recommendations")
+    @Operation(summary = "Get recommendations", description = "Get AI career recommendations based on the latest assessment")
+    @SecurityRequirement(name = "Bearer")
+    public ResponseEntity<ApiResponse<List<com.chanakya.dto.RecommendationDTO>>> getRecommendations() {
+        Long userId = extractUserIdFromAuthentication();
+
+        // Pehle latest assessment nikalo
+        Assessment latest = assessmentService.getLatestAssessmentByUserId(userId);
+
+        if (latest == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    ApiResponse.<List<com.chanakya.dto.RecommendationDTO>>builder()
+                            .success(false)
+                            .message("Pehle assessment complete karein")
+                            .status(HttpStatus.NOT_FOUND.value())
+                            .build()
+            );
+        }
+
+        // RecommendationService se data lao
+
+
+        List<com.chanakya.dto.RecommendationDTO> recommendations =
+                recommendationService.getRecommendationsByAssessmentId(latest.getId());
+
+        return ResponseEntity.ok(
+                ApiResponse.<List<com.chanakya.dto.RecommendationDTO>>builder()
+                        .success(true)
+                        .message("Recommendations retrieved successfully")
+                        .data(recommendations)
+                        .status(HttpStatus.OK.value())
+                        .build()
+        );
+    }
     private Long extractUserIdFromAuthentication() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated() ||
+                authentication.getPrincipal().equals("anonymousUser")) {
+            throw new RuntimeException("User not authenticated");
+        }
+
         String userEmail = authentication.getName();
 
-        // TODO: Implement proper user ID extraction from database
-        return 1L; // Temporary dummy ID
+        return userRepository.findByEmail(userEmail)
+                .map(com.chanakya.entity.User::getId)
+                .orElseThrow(() -> new RuntimeException("User not found in DB: " + userEmail));
     }
 }

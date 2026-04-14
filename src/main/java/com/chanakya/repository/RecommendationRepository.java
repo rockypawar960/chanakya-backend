@@ -12,4 +12,6 @@ public interface RecommendationRepository extends JpaRepository<Recommendation, 
     List<Recommendation> findByAssessmentIdAndIsActiveTrue(Long assessmentId);
     List<Recommendation> findByAssessmentIdAndIsActiveTrueOrderByMatchScoreDesc(Long assessmentId);
     List<Recommendation> findByUserIdAndIsActiveTrueOrderByMatchScoreDesc(Long userId);
+
+    void deleteByAssessmentId(Long id);
 }

@@ -3,10 +3,12 @@ package com.chanakya.service;
 import com.chanakya.dto.LoginRequest;
 import com.chanakya.dto.LoginResponse;
 import com.chanakya.dto.RegisterRequest;
+import com.chanakya.entity.PasswordResetToken;
 import com.chanakya.entity.Role;
 import com.chanakya.entity.User;
 import com.chanakya.exception.BadRequestException;
 import com.chanakya.exception.ResourceNotFoundException;
+import com.chanakya.repository.PasswordResetTokenRepository;
 import com.chanakya.repository.RoleRepository;
 import com.chanakya.repository.UserRepository;
 import com.chanakya.security.JwtTokenProvider;
@@ -23,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +39,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
+    private final PasswordResetTokenRepository tokenRepository;
 
     /**
      * Register a new user
@@ -161,5 +166,57 @@ public class AuthService {
         log.info("Logging out user");
         SecurityContextHolder.clearContext();
         // Additional logout logic (token blacklisting) can be added here
+    }
+
+    // 🔹 1. Forgot Password
+    public String forgotPassword(String email) {
+
+        Optional<User> userOpt = userRepository.findByEmail(email);
+
+        // Security (important)
+        if (userOpt.isEmpty()) {
+            return "If email exists, link sent!";
+        }
+
+        // Old tokens delete
+        tokenRepository.deleteByEmail(email);
+
+        String token = UUID.randomUUID().toString();
+
+        PasswordResetToken resetToken = new PasswordResetToken();
+        resetToken.setEmail(email);
+        resetToken.setToken(token);
+        resetToken.setExpiryTime(LocalDateTime.now().plusMinutes(15));
+
+        tokenRepository.save(resetToken);
+
+        String link = "http://localhost:5173/reset-password?token=" + token;
+
+        // TODO: Email send karo
+        System.out.println("RESET LINK: " + link);
+
+        return "Reset link sent!";
+    }
+
+    // 🔹 2. Reset Password
+    public String resetPassword(String token, String newPassword) {
+
+        PasswordResetToken resetToken = tokenRepository.findByToken(token)
+                .orElseThrow(() -> new RuntimeException("Invalid token"));
+
+        if (resetToken.getExpiryTime().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Token expired");
+        }
+
+        User user = userRepository.findByEmail(resetToken.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        // delete token
+        tokenRepository.deleteByEmail(user.getEmail());
+
+        return "Password updated successfully!";
     }
 }

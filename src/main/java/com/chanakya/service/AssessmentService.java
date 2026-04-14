@@ -27,8 +27,16 @@ public class AssessmentService {
     private final RecommendationService recommendationService;
 
     public List<QuestionDTO> getAllQuestions() {
-        List<Question> questions =
-                questionRepository.findByIsActiveTrueOrderBySequenceNumber();
+        List<Question> questions = questionRepository.findByIsActiveTrueOrderBySequenceNumber();
+
+        // Debug: Check database se kya aa raha hai
+        log.info("📥 Fetching questions from database...");
+        questions.forEach(q -> {
+            log.info("Question {}: {}", q.getId(), q.getQuestionText());
+            q.getOptions().forEach(opt ->
+                    log.info("  Option: {} = {}", opt.getOptionText(), opt.getOptionValue())
+            );
+        });
 
         return questions.stream()
                 .map(this::mapToQuestionDTO)
@@ -36,12 +44,12 @@ public class AssessmentService {
     }
 
     private QuestionDTO mapToQuestionDTO(Question question) {
-
         List<QuestionOptionDTO> options = question.getOptions()
                 .stream()
                 .map(option -> QuestionOptionDTO.builder()
                         .id(option.getId())
                         .optionText(option.getOptionText())
+                        .optionValue(option.getOptionValue())  // ✅ YEH ADD KARO
                         .build())
                 .toList();
 
@@ -54,6 +62,7 @@ public class AssessmentService {
                 .build();
     }
 
+    @Transactional
     public Assessment submitAssessment(Long userId, AssessmentRequest request) {
 
         User user = userRepository.findById(userId)
@@ -76,6 +85,9 @@ public class AssessmentService {
         Assessment saved = assessmentRepository.save(assessment);
 
         recommendationService.generateRecommendations(saved);
+
+        // Ye line console mein check karo submit ke baad
+        System.out.println("Received Answers: " + request.getAnswers());
 
         return saved;
     }
@@ -105,14 +117,10 @@ public class AssessmentService {
 
 
     private Map<String, Integer> calculateBucketScores(Map<String, Object> answers) {
-
         Map<String, Integer> bucketScores = new HashMap<>();
 
         for (Map.Entry<String, Object> entry : answers.entrySet()) {
-
             Long questionId = Long.parseLong(entry.getKey());
-
-            // 🔥 SAFE score extraction
             Integer score = 0;
 
             if (entry.getValue() != null) {
@@ -122,18 +130,17 @@ public class AssessmentService {
             Question question = questionRepository.findById(questionId)
                     .orElseThrow(() -> new RuntimeException("Question not found: " + questionId));
 
-            if (question.getBucket() == null) {
-                continue;  // extra safety
-            }
+            if (question.getBucket() == null) continue;
 
-            String bucketName = question.getBucket().getName();
+            // 🔥 1. Pehle hi uppercase kar lo
+            String bucketName = question.getBucket().getName().toUpperCase().trim();
 
+            // 🔥 2. Get aur Put dono mein wahi 'bucketName' (uppercase) use karo
             bucketScores.put(
                     bucketName,
                     bucketScores.getOrDefault(bucketName, 0) + score
             );
         }
-
         return bucketScores;
     }
 }

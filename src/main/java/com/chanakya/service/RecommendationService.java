@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -22,92 +21,71 @@ public class RecommendationService {
     private final CareerAttributeRepository careerAttributeRepository;
 
     public List<RecommendationDTO> generateRecommendations(Assessment assessment) {
+        // 1. Purani recommendations deactivate ya delete karein
+        recommendationRepository.deleteByAssessmentId(assessment.getId());
 
         Map<String, Integer> userBuckets = assessment.getBucketScores();
-
-        List<Career> careers =
-                careerRepository.findTop5ByIsActiveTrueOrderByPopularityScoreDesc();
-
+        List<Career> careers = careerRepository.findByIsActiveTrueOrderByPopularityScoreDesc();
         List<Recommendation> recommendations = new ArrayList<>();
 
         for (Career career : careers) {
-
             double matchScore = calculateMatchScore(userBuckets, career);
+            if (matchScore <= 0) continue;
 
-            Recommendation recommendation = Recommendation.builder()
+            recommendations.add(Recommendation.builder()
                     .user(assessment.getUser())
                     .assessment(assessment)
                     .career(career)
                     .matchScore(matchScore)
-                    .reasoning(generateReasoning(userBuckets))
+                    .reasoning("Based on your strengths in " + String.join(", ", userBuckets.keySet()))
                     .isActive(true)
-                    .build();
-
-            recommendations.add(recommendation);
+                    .build());
         }
 
-        // Sort by highest score
-        recommendations.sort((a, b) ->
-                Double.compare(b.getMatchScore(), a.getMatchScore()));
-
-        // Keep top 3 only
-        recommendations = recommendations.stream().limit(3).toList();
-
-        recommendationRepository.saveAll(recommendations);
-
-        return recommendations.stream().map(this::mapToDTO).toList();
-    }
-
-
-    public List<RecommendationDTO> getRecommendationsByAssessmentId(Long assessmentId) {
-
-        List<Recommendation> recommendations =
-                recommendationRepository
-                        .findByAssessmentIdAndIsActiveTrueOrderByMatchScoreDesc(assessmentId);
-
-        return recommendations.stream()
-                .map(this::mapToDTO)
+        // Sorting & Limiting (Top 3)
+        List<Recommendation> topRecommendations = recommendations.stream()
+                .sorted((r1, r2) -> Double.compare(r2.getMatchScore(), r1.getMatchScore()))
+                .limit(3)
                 .toList();
+
+        recommendationRepository.saveAll(topRecommendations);
+        return topRecommendations.stream().map(this::mapToDTO).toList();
     }
 
-    public List<RecommendationDTO> getRecommendationsByUserId(Long userId) {
-
-        List<Recommendation> recommendations =
-                recommendationRepository
-                        .findByUserIdAndIsActiveTrueOrderByMatchScoreDesc(userId);
-
-        return recommendations.stream()
-                .map(this::mapToDTO)
-                .toList();
-    }
     private double calculateMatchScore(Map<String, Integer> userBuckets, Career career) {
+        List<CareerAttribute> attributes = careerAttributeRepository.findByCareerIdAndIsActiveTrue(career.getId());
+        if (attributes.isEmpty()) return 0;
 
-        List<CareerAttribute> attributes =
-                careerAttributeRepository.findByCareerIdAndIsActiveTrue(career.getId());
-
-        double score = 0;
-        double maxScore = 0;
+        double weightedScore = 0;
+        double totalWeight = 0;
 
         for (CareerAttribute attr : attributes) {
+            if (attr.getBucket() == null) continue;
 
-            String bucketName = attr.getBucket().getName();
+            // 🔥 DATABASE SE NAAM NIKALO AUR USE UPPERCASE KARO
+            String bucketName = attr.getBucket().getName().toUpperCase().trim();
+
             int weight = attr.getWeight();
 
+            // User scores se value nikaalte waqt bhi capital key hi dhoondo
             int userScore = userBuckets.getOrDefault(bucketName, 0);
 
-            score += userScore * weight;
-            maxScore += 100 * weight;
+            weightedScore += (double) userScore * weight;
+            totalWeight += weight;
         }
 
-        if (maxScore == 0) return 0;
+        if (totalWeight == 0) return 0;
 
-        return (score / maxScore) * 100;
+        // Final Formula (Base 10 ke liye)
+        return (weightedScore / (totalWeight * 10.0)) * 100;
     }
 
-    private String generateReasoning(Map<String, Integer> buckets) {
-        return "This career aligns strongly with your dominant interest areas.";
-    }
+    // ... baaki methods (getRecommendations, mapToDTO) sahi hain
 
+
+    /**
+     * 🔄 Entity ko DTO mein badalne ke liye helper method
+     */
     private RecommendationDTO mapToDTO(Recommendation r) {
         return RecommendationDTO.builder()
                 .id(r.getId())
@@ -118,4 +96,18 @@ public class RecommendationService {
                 .isActive(r.getIsActive())
                 .build();
     }
+
+    // 1. Ye method Controller mang raha hai
+    public List<RecommendationDTO> getRecommendationsByAssessmentId(Long assessmentId) {
+        return recommendationRepository.findByAssessmentIdAndIsActiveTrueOrderByMatchScoreDesc(assessmentId)
+                .stream().map(this::mapToDTO).toList();
+    }
+
+    // 2. Ye method bhi Controller mang raha hai
+    public List<RecommendationDTO> getRecommendationsByUserId(Long userId) {
+        return recommendationRepository.findByUserIdAndIsActiveTrueOrderByMatchScoreDesc(userId)
+                .stream().map(this::mapToDTO).toList();
+    }
+
+
 }

@@ -1,6 +1,8 @@
 package com.chanakya.repository;
 
 import com.chanakya.entity.Assessment;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -13,4 +15,6 @@ public interface AssessmentRepository extends JpaRepository<Assessment, Long> {
     Optional<Assessment> findTopByUserIdAndIsActiveTrueOrderByCompletedAtDesc(Long userId);
 
     List<Assessment> findByUserIdAndIsActiveTrueOrderByCompletedAtDesc(Long userId);
+
+    Page<Assessment> findByUserId(Long userId, Pageable pageable);
 }

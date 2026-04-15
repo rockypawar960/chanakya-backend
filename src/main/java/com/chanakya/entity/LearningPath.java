@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import lombok.NoArgsConstructor;
-
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
@@ -28,8 +28,33 @@ public class LearningPath {
     private String description;
     private Integer durationMonths;
 
+    // ✅ Add this field
+    @Column(name = "is_active")
+    private Boolean isActive = true;  // Default active
+
+    // ✅ Add timestamps (optional but good)
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
     @OneToMany(mappedBy = "learningPath", cascade = CascadeType.ALL)
     @JsonManagedReference
     private List<LearningStep> steps;
-    // getters & setters
+
+    // ✅ Add lifecycle callbacks
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+        if (isActive == null) {
+            isActive = true;
+        }
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }

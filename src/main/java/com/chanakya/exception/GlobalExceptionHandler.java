@@ -91,6 +91,68 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Object>> handleAccessDeniedException(
+            org.springframework.security.access.AccessDeniedException ex) {
+
+        log.error("Access denied: {}", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                ApiResponse.<Object>builder()
+                        .success(false)
+                        .message("You do not have permission to perform this action")
+                        .data(null)
+                        .status(HttpStatus.FORBIDDEN.value())
+                        .build()
+        );
+    }
+
+    @ExceptionHandler(jakarta.persistence.EntityNotFoundException.class)
+    public ResponseEntity<ApiResponse<Object>> handleEntityNotFound(
+            jakarta.persistence.EntityNotFoundException ex) {
+
+        log.error("Entity not found: {}", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                ApiResponse.<Object>builder()
+                        .success(false)
+                        .message(ex.getMessage())
+                        .data(null)
+                        .status(HttpStatus.NOT_FOUND.value())
+                        .build()
+        );
+    }
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Object>> handleInvalidJson(
+            org.springframework.http.converter.HttpMessageNotReadableException ex) {
+
+        log.error("Invalid JSON: {}", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                ApiResponse.<Object>builder()
+                        .success(false)
+                        .message("Invalid request body format")
+                        .data(null)
+                        .status(HttpStatus.BAD_REQUEST.value())
+                        .build()
+        );
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Object>> handleIllegalArgument(IllegalArgumentException ex) {
+
+        log.error("Illegal argument: {}", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                ApiResponse.<Object>builder()
+                        .success(false)
+                        .message(ex.getMessage())
+                        .data(null)
+                        .status(HttpStatus.BAD_REQUEST.value())
+                        .build()
+        );
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGlobalException(
             Exception ex, WebRequest request) {

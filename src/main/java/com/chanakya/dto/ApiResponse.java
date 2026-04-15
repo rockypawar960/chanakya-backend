@@ -13,7 +13,11 @@ public class ApiResponse<T> {
     private LocalDateTime timestamp;
     private int status;
 
-    // Constructor
+    // Constructors
+    public ApiResponse(boolean success, String message, T data) {
+        this(success, message, data, success ? 200 : 400);
+    }
+
     public ApiResponse(boolean success, String message, T data, int status) {
         this.success = success;
         this.message = message;
@@ -22,7 +26,7 @@ public class ApiResponse<T> {
         this.timestamp = LocalDateTime.now();
     }
 
-    // Builder class
+    // Builder
     public static <T> Builder<T> builder() {
         return new Builder<>();
     }
@@ -32,6 +36,7 @@ public class ApiResponse<T> {
         private String message;
         private T data;
         private int status;
+        private LocalDateTime timestamp;
 
         public Builder<T> success(boolean success) {
             this.success = success;
@@ -53,21 +58,24 @@ public class ApiResponse<T> {
             return this;
         }
 
-        public ApiResponse<T> build() {
-            return new ApiResponse<>(success, message, data, status);
+        // ✅ Add this method
+        public Builder<T> timestamp(LocalDateTime timestamp) {
+            this.timestamp = timestamp;
+            return this;
         }
-    }
 
-    // Static factory methods for common responses
-    public static <T> ApiResponse<T> success(String message, T data) {
-        return new ApiResponse<>(true, message, data, 200);
-    }
+        // ✅ Add this method for String timestamp
+        public Builder<T> timestamp(String timestamp) {
+            this.timestamp = timestamp != null ? LocalDateTime.parse(timestamp) : LocalDateTime.now();
+            return this;
+        }
 
-    public static <T> ApiResponse<T> success(String message, T data, int status) {
-        return new ApiResponse<>(true, message, data, status);
-    }
-
-    public static <T> ApiResponse<T> error(String message, int status) {
-        return new ApiResponse<>(false, message, null, status);
+        public ApiResponse<T> build() {
+            ApiResponse<T> response = new ApiResponse<>(success, message, data, status);
+            if (timestamp != null) {
+                response.setTimestamp(timestamp);
+            }
+            return response;
+        }
     }
 }

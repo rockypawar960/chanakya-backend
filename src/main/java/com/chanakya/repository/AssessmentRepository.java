@@ -17,4 +17,9 @@ public interface AssessmentRepository extends JpaRepository<Assessment, Long> {
     List<Assessment> findByUserIdAndIsActiveTrueOrderByCompletedAtDesc(Long userId);
 
     Page<Assessment> findByUserId(Long userId, Pageable pageable);
+
+    int countByUserId(Long userId);
+
+    Optional<Assessment> findTopByUser_IdOrderByCompletedAtDesc(Long userId);
+
 }

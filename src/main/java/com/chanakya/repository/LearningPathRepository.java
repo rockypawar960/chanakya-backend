@@ -16,6 +16,8 @@ public interface LearningPathRepository extends JpaRepository<LearningPath, Long
     // For all results (without pagination)
     List<LearningPath> findByCareerId(Long careerId);
 
+
+
     // For active learning paths only
     Page<LearningPath> findByCareerIdAndIsActiveTrue(Long careerId, Pageable pageable);
 

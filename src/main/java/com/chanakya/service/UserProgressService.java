@@ -28,12 +28,10 @@ public class UserProgressService {
                                 .build()
                 );
 
-        // ✅ Start time set only once
-        if (status.equals("in_progress") && progress.getStartedAt() == null) {
+        if (status.equalsIgnoreCase("in_progress") && progress.getStartedAt() == null) {
             progress.setStartedAt(LocalDateTime.now());
         }
 
-        // ✅ Complete time set
         if (status.equals("completed")) {
             progress.setCompletedAt(LocalDateTime.now());
         }
@@ -42,16 +40,32 @@ public class UserProgressService {
 
         progressRepo.save(progress);
     }
-
     public double calculateProgress(Long userId, Long pathId) {
-
+        // 1. Total steps nikalo
         long totalSteps = stepRepo.countStepsByPathId(pathId);
-
-        long completedSteps = progressRepo
-                .countCompletedStepsByUserAndPath(userId, pathId);
-
         if (totalSteps == 0) return 0;
 
-        return ((double) completedSteps / totalSteps) * 100;
+        // 2. Woh steps gino jo ya toh start ho chuke hain ya khatam
+        long activeSteps = progressRepo.countStartedOrCompletedSteps(userId, pathId);
+
+        // 3. Percentage calculate karo
+        double percentage = ((double) activeSteps / totalSteps) * 100;
+
+        // 4. Safetly check: Agar koi step active hai toh kam se kam 1% return karo
+        if (percentage == 0 && activeSteps > 0) {
+            return 1.0;
+        }
+
+        return percentage;
+    }
+
+
+    public String getPathStatus(Long userId, Long pathId) {
+
+        double progress = calculateProgress(userId, pathId);
+
+        if (progress == 0) return "NOT_STARTED";
+        if (progress < 100) return "ENROLLED";
+        return "COMPLETED";
     }
 }

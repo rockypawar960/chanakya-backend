@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 
 @RestController
-@RequestMapping("/learning-paths")
+@RequestMapping("user/learning-paths")
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Learning Path", description = "Learning path endpoints")
@@ -19,11 +19,27 @@ public class LearningPathController {
 
     private final LearningPathService pathService;
 
-    @GetMapping("/{pathId}/full")
+    @GetMapping("/path/{pathId}")
     public ResponseEntity<ApiResponse<LearningPathDTO>> getFullPath(
             @PathVariable Long pathId) {
 
         LearningPathDTO dto = pathService.getPathWithSteps(pathId);
+
+        return ResponseEntity.ok(
+                ApiResponse.<LearningPathDTO>builder()
+                        .success(true)
+                        .message("Learning path with steps fetched successfully")
+                        .data(dto)
+                        .status(200)
+                        .build()
+        );
+    }
+
+    @GetMapping("/careerId/{carrierId}")
+    public ResponseEntity<ApiResponse<LearningPathDTO>> getFullPathByCareerId(
+            @PathVariable Long carrierId) {
+
+        LearningPathDTO dto = pathService.getPathWithStepsByCareerId(carrierId);
 
         return ResponseEntity.ok(
                 ApiResponse.<LearningPathDTO>builder()

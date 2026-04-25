@@ -7,6 +7,9 @@ import com.chanakya.repository.LearningPathRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 public class LearningPathService {
@@ -17,6 +20,13 @@ public class LearningPathService {
 
         LearningPath path = pathRepo.findById(pathId)
                 .orElseThrow(() -> new RuntimeException("Path not found"));
+
+        return convertToDTO(path);
+    }
+
+    public LearningPathDTO getPathWithStepsByCareerId(Long carrierId) {
+        List<LearningPath> paths = pathRepo.findByCareerId(carrierId);
+        LearningPath path=paths.get(0);
 
         return convertToDTO(path);
     }
@@ -46,4 +56,6 @@ public class LearningPathService {
 
                 .build();
     }
+
+
 }

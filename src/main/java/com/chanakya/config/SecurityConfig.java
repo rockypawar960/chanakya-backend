@@ -117,7 +117,8 @@ public class SecurityConfig {
                 "http://localhost:3000",   // React default
                 "http://127.0.0.1:8081",
                 "http://127.0.0.1:5173",
-                "http://127.0.0.1:3000"
+                "http://127.0.0.1:3000",
+                "https://chanakyathementor.vercel.app"
         ));
 
         // Allow all HTTP methods

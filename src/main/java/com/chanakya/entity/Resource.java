@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 import java.time.LocalDateTime;
 
 @Entity
@@ -21,8 +20,8 @@ public class Resource {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "career_id")
-    private Career career;  // 🔥 nullable=false hata diya - kuch resources career-specific nahi hote
+    @JoinColumn(name = "career_id", nullable = true)
+    private Career career;
 
     @Column(nullable = false)
     private String title;
@@ -31,26 +30,30 @@ public class Resource {
     private String description;
 
     @Column(nullable = false)
-    private String resourceType; // COURSE, ARTICLE, BOOK, VIDEO, PLATFORM
+    private String resourceType;      // PLAYLIST, VIDEO, COURSE, ARTICLE, PLATFORM, ROADMAP
 
     @Column(nullable = false)
     private String url;
 
-    private String provider; // e.g., "Coursera", "Medium"  // 🔥 @Column hata diya - optional hai
-
-    private String difficulty; // BEGINNER, INTERMEDIATE, ADVANCED
+    private String provider;          // "YouTube", "Coursera", "NPTEL", "LeetCode"
+    private String difficulty;        // BEGINNER, INTERMEDIATE, ADVANCED
 
     @Column(name = "estimated_duration")
-    private String estimatedDuration;
+    private String estimatedDuration; // "12 hours", "4 weeks"
+
+    // ── NEW FIELDS ────────────────────────────────────────────────────────────
+    private String language;          // "Hindi", "English", "Both"
+    private String skill;             // "Java", "DSA", "Spring Boot"
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-    @Column(name = "is_active", nullable = false)
-    private Boolean isActive = true;
 
     @PrePersist
     protected void onCreate() {

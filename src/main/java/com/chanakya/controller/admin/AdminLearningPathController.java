@@ -15,7 +15,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/admin/learning-paths")
+@RequestMapping("/admin/learning-paths")
 @RequiredArgsConstructor
 @Slf4j
 public class AdminLearningPathController {

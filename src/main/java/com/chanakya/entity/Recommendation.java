@@ -22,6 +22,9 @@ public class Recommendation {
     @JoinColumn(name = "user_id")
     private User user;
 
+    @Version
+    private Integer version;
+
     @ManyToOne
     @JoinColumn(name = "career_id")
     private Career career;

@@ -22,7 +22,7 @@ public class RecommendationService {
 
     public List<RecommendationDTO> generateRecommendations(Assessment assessment) {
         // 1. Purani recommendations deactivate ya delete karein
-        recommendationRepository.deleteByAssessmentId(assessment.getId());
+//        recommendationRepository.deleteByAssessmentId(assessment.getId());
 
         Map<String, Integer> userBuckets = assessment.getBucketScores();
         List<Career> careers = careerRepository.findByIsActiveTrueOrderByPopularityScoreDesc();
@@ -53,35 +53,34 @@ public class RecommendationService {
     }
 
     private double calculateMatchScore(Map<String, Integer> userBuckets, Career career) {
-        List<CareerAttribute> attributes = careerAttributeRepository.findByCareerIdAndIsActiveTrue(career.getId());
-        if (attributes.isEmpty()) return 0;
+        if (userBuckets == null || userBuckets.isEmpty()) return 0.0;
 
-        double weightedScore = 0;
-        double totalWeight = 0;
+        List<CareerAttribute> attributes = careerAttributeRepository.findByCareerIdAndIsActiveTrue(career.getId());
+        if (attributes == null || attributes.isEmpty()) return 0.0;
+
+        double weightedScore = 0.0;
+        double totalWeight = 0.0;
 
         for (CareerAttribute attr : attributes) {
             if (attr.getBucket() == null) continue;
 
-            // 🔥 DATABASE SE NAAM NIKALO AUR USE UPPERCASE KARO
             String bucketName = attr.getBucket().getName().toUpperCase().trim();
+            double weight = (double) attr.getWeight(); // Use double for weight too
 
-            int weight = attr.getWeight();
-
-            // User scores se value nikaalte waqt bhi capital key hi dhoondo
             int userScore = userBuckets.getOrDefault(bucketName, 0);
 
-            weightedScore += (double) userScore * weight;
+            weightedScore += userScore * weight;
             totalWeight += weight;
         }
 
-        if (totalWeight == 0) return 0;
+        if (totalWeight == 0) return 0.0;
 
-        // Final Formula (Base 10 ke liye)
-        return (weightedScore / (totalWeight * 10.0)) * 100;
+        // Formula: (Total Obtained / Total Possible) * 100
+        // Assuming each bucket max score is 10
+        double score = (weightedScore / (totalWeight * 10.0)) * 100.0;
+
+        return Math.min(score, 100.0); // 100 se upar na jaye
     }
-
-    // ... baaki methods (getRecommendations, mapToDTO) sahi hain
-
 
     /**
      * 🔄 Entity ko DTO mein badalne ke liye helper method
@@ -98,6 +97,7 @@ public class RecommendationService {
     }
 
     // 1. Ye method Controller mang raha hai
+    @Transactional
     public List<RecommendationDTO> getRecommendationsByAssessmentId(Long assessmentId) {
         return recommendationRepository.findByAssessmentIdAndIsActiveTrueOrderByMatchScoreDesc(assessmentId)
                 .stream().map(this::mapToDTO).toList();

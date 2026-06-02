@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/assessments")
+@RequestMapping("user/assessments")
 @RequiredArgsConstructor
 @Tag(name = "Assessment", description = "Assessment related endpoints")
 public class AssessmentController {

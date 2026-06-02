@@ -22,50 +22,91 @@ public class ResourceController {
 
     private final ResourceService resourceService;
 
+    // ─── EXISTING ────────────────────────────────────────────────────────────
     @GetMapping
-    @Operation(summary = "Get all resources", description = "Fetch all active resources")
+    @Operation(summary = "Get all resources")
     public ResponseEntity<ApiResponse<List<ResourceDTO>>> getAllResources() {
-        log.info("Fetching all resources");
         List<ResourceDTO> resources = resourceService.getAllResources();
-
-        return ResponseEntity.ok(
-                ApiResponse.<List<ResourceDTO>>builder()  // 🔥 FIX: Generic type specify
-                        .success(true)
-                        .message(resources.isEmpty() ? "No resources found" : "Resources retrieved successfully")
-                        .data(resources)
-                        .status(HttpStatus.OK.value())
-                        .build()
-        );
+        return ResponseEntity.ok(ApiResponse.<List<ResourceDTO>>builder()
+                .success(true)
+                .message(resources.isEmpty() ? "No resources found" : "Resources retrieved successfully")
+                .data(resources)
+                .status(HttpStatus.OK.value())
+                .build());
     }
 
+    // ─── EXISTING ────────────────────────────────────────────────────────────
     @GetMapping("/career/{careerId}")
-    @Operation(summary = "Get resources for career", description = "Get all resources for a specific career")
+    @Operation(summary = "Get resources by career ID")
     public ResponseEntity<ApiResponse<List<ResourceDTO>>> getResourcesByCareer(
             @PathVariable Long careerId) {
-        log.info("Fetching resources for career id: {}", careerId);
-        List<ResourceDTO> resources = resourceService.getResourcesByCareerId(careerId);  // 🔥 Method name sahi kiya
-
-        return ResponseEntity.ok(
-                ApiResponse.<List<ResourceDTO>>builder()  // 🔥 FIX: Generic type specify
-                        .success(true)
-                        .message(resources.isEmpty() ? "No resources found" : "Resources retrieved successfully")
-                        .data(resources)
-                        .status(HttpStatus.OK.value())
-                        .build()
-        );
+        List<ResourceDTO> resources = resourceService.getResourcesByCareerId(careerId);
+        return ResponseEntity.ok(ApiResponse.<List<ResourceDTO>>builder()
+                .success(true)
+                .message(resources.isEmpty() ? "No resources found" : "Resources retrieved successfully")
+                .data(resources)
+                .status(HttpStatus.OK.value())
+                .build());
     }
 
+    // ─── EXISTING ────────────────────────────────────────────────────────────
     @GetMapping("/{id}")
-    @Operation(summary = "Get resource by ID", description = "Fetch a specific resource by its ID")
+    @Operation(summary = "Get resource by ID")
     public ResponseEntity<ApiResponse<ResourceDTO>> getResourceById(@PathVariable Long id) {
-        log.info("Fetching resource with id: {}", id);
         ResourceDTO resource = resourceService.getResourceById(id);
+        return ResponseEntity.ok(ApiResponse.<ResourceDTO>builder()
+                .success(true)
+                .message("Resource retrieved successfully")
+                .data(resource)
+                .status(HttpStatus.OK.value())
+                .build());
+    }
+
+    // ─── NEW: AI Generate resources for a skill ───────────────────────────
+    // Frontend calls this when student opens a learning step
+    // Returns cached resources if already generated, else calls AI
+    @PostMapping("/generate")
+    @Operation(summary = "AI generate free resources for a skill",
+            description = "Generates YouTube playlists, free courses, practice platforms for a skill. Returns cached if already exists.")
+    public ResponseEntity<ApiResponse<List<ResourceDTO>>> generateResources(
+            @RequestParam Long careerId,
+            @RequestParam String skill,
+            @RequestParam(defaultValue = "BEGINNER") String level,
+            @RequestParam(defaultValue = "both") String language) {
+
+        log.info("Generate resources → careerId={} skill={} level={} lang={}",
+                careerId, skill, level, language);
+
+        List<ResourceDTO> resources = resourceService
+                .generateAndSaveResources(careerId, skill, level, language);
+
+        return ResponseEntity.ok(ApiResponse.<List<ResourceDTO>>builder()
+                .success(true)
+                .message("Resources generated successfully for: " + skill)
+                .data(resources)
+                .status(HttpStatus.OK.value())
+                .build());
+    }
+
+    // generate resource for searches only not for specific career
+    @PostMapping("/search")
+    public ResponseEntity<ApiResponse<List<ResourceDTO>>> searchResources(
+            @RequestParam String skill,
+            @RequestParam(defaultValue = "BEGINNER") String level,
+            @RequestParam(defaultValue = "both") String language) {
+
+        List<ResourceDTO> resources =
+                resourceService.generateAndSaveResources(
+                        skill,
+                        level,
+                        language
+                );
 
         return ResponseEntity.ok(
-                ApiResponse.<ResourceDTO>builder()  // 🔥 FIX: Generic type specify
+                ApiResponse.<List<ResourceDTO>>builder()
                         .success(true)
-                        .message("Resource retrieved successfully")
-                        .data(resource)
+                        .message("Resources generated successfully")
+                        .data(resources)
                         .status(HttpStatus.OK.value())
                         .build()
         );

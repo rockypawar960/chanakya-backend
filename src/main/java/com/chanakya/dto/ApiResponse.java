@@ -1,5 +1,6 @@
 package com.chanakya.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
 import java.time.LocalDateTime;
@@ -10,6 +11,7 @@ public class ApiResponse<T> {
     private boolean success;
     private String message;
     private T data;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime timestamp;
     private int status;
 
@@ -77,5 +79,6 @@ public class ApiResponse<T> {
             }
             return response;
         }
+
     }
 }

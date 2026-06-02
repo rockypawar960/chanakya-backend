@@ -2,6 +2,8 @@ package com.chanakya.controller;
 
 import com.chanakya.dto.ApiResponse;
 import com.chanakya.dto.RecommendationDTO;
+import com.chanakya.repository.UserRepository;
+import com.chanakya.security.AuthUtil;
 import com.chanakya.service.RecommendationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -10,18 +12,22 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/recommendations")
+@RequestMapping("user/recommendations")
 @RequiredArgsConstructor
 @Tag(name = "Recommendation", description = "Career recommendation endpoints")
 @Slf4j
 public class RecommendationController {
 
     private final RecommendationService recommendationService;
+    private final UserRepository userRepository;
+    private final AuthUtil authUtil;
 
     @GetMapping("/assessment/{assessmentId}")
     @Operation(summary = "Get recommendations by assessment", description = "Get recommendations based on assessment results")
@@ -66,7 +72,7 @@ public class RecommendationController {
     @SecurityRequirement(name = "Bearer")
     public ResponseEntity<ApiResponse<List<RecommendationDTO>>> getMyRecommendations() {
 
-        Long userId = getCurrentUserId();
+        Long userId = authUtil.getCurrentUserId();
         log.info("Fetching recommendations for current user id: {}", userId);
 
         List<RecommendationDTO> recommendations = recommendationService.getRecommendationsByUserId(userId);
@@ -81,8 +87,5 @@ public class RecommendationController {
         );
     }
 
-    private Long getCurrentUserId() {
-        // TODO: Implement proper user ID extraction from SecurityContext
-        return 1L; // Temporary
-    }
+
 }

@@ -28,11 +28,13 @@ public class AdminDashboardController {
 
     private final AdminDashboardService adminDashboardService;
 
-    @GetMapping
+    @GetMapping("/stats")
     @Operation(summary = "Get dashboard statistics",
             description = "Fetch complete dashboard statistics including users, assessments, careers, and trends")
     public ResponseEntity<?> getDashboardStats() {
         log.info("Admin requesting dashboard statistics");
+
+        System.out.println("deshboard called");
 
         try {
             AdminDashboardDTO dashboardStats = adminDashboardService.getDashboardStats();

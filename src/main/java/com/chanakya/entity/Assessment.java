@@ -46,4 +46,6 @@ public class Assessment {
     protected void onCreate() {
         completedAt = LocalDateTime.now();
     }
+
+    private Integer score;
 }

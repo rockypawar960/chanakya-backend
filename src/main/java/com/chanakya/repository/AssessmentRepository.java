@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,4 +18,11 @@ public interface AssessmentRepository extends JpaRepository<Assessment, Long> {
     List<Assessment> findByUserIdAndIsActiveTrueOrderByCompletedAtDesc(Long userId);
 
     Page<Assessment> findByUserId(Long userId, Pageable pageable);
+
+    int countByUserId(Long userId);
+
+    Optional<Assessment> findTopByUser_IdOrderByCompletedAtDesc(Long userId);
+
+    Collection<Object> findAllByUserIdOrderByCompletedAtDesc(Long userId);
+
 }

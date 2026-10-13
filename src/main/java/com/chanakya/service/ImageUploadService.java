@@ -1,0 +1,55 @@
+package com.chanakya.service;
+
+
+
+        import com.cloudinary.Cloudinary;
+
+        import com.cloudinary.utils.ObjectUtils;
+
+        import lombok.RequiredArgsConstructor;
+
+        import org.springframework.stereotype.Service;
+
+        import org.springframework.web.multipart.MultipartFile;
+
+
+
+        import java.io.IOException;
+
+        import java.util.Map;
+
+
+
+        @Service
+
+        @RequiredArgsConstructor
+
+        public class ImageUploadService {
+
+
+
+          private final Cloudinary cloudinary;
+
+
+
+          public String uploadProfilePicture(MultipartFile file, Long userId) throws IOException {
+
+       Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
+
+                          "folder", "chanakya/profile-pictures",
+
+               "public_id", "user_" + userId,
+
+               "overwrite", true,
+
+               "resource_type", "image"
+
+                  ));
+
+
+
+       return (String) uploadResult.get("secure_url");
+
+   }
+
+        }

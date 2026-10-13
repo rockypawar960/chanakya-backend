@@ -38,3 +38,6 @@ buildNumber.properties
 # Logs
 logs/
 *.log
+
+#docker
+docker-compose.yml

@@ -20,6 +20,7 @@ public class UserDashboardServiceImpl implements UserDashboardService {
     private final LearningPathRepository learningPathRepository;
     private final RecommendationService recommendationService;
     private final LearningStepService learningStepService;
+    private final ProfileCompletionService profileCompletionService;
 
     @Override
     public UserDashboardDTO getDashboard(Long userId) {
@@ -39,7 +40,7 @@ public class UserDashboardServiceImpl implements UserDashboardService {
         dto.setTotalLearningHours(completedCount * 5);
 
         // Profile completion logic (Example: 80%)
-        dto.setProfileCompletion(80);
+        dto.setProfileCompletion(profileCompletionService.calculatePercentage(user));
 
         // 3. Assessment Dependent Data
         assessmentRepository.findTopByUser_IdOrderByCompletedAtDesc(userId)

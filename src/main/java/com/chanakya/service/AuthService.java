@@ -14,6 +14,7 @@ import com.chanakya.repository.UserRepository;
 import com.chanakya.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -24,8 +25,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
-import java.util.Set;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -40,6 +42,10 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordResetTokenRepository tokenRepository;
+
+    // DEV ONLY: true hone par forgot-password token seedha frontend ko deta hai (email nahi)
+    @Value("${app.dev-direct-reset:false}")
+    private boolean devDirectReset;
 
     /**
      * Register a new user
@@ -169,13 +175,15 @@ public class AuthService {
     }
 
     // 🔹 1. Forgot Password
-    public String forgotPassword(String email) {
+    public Map<String, Object> forgotPassword(String email) {
+
+        final String GENERIC_MSG = "If an account exists for this email, a reset link has been sent.";
 
         Optional<User> userOpt = userRepository.findByEmail(email);
 
-        // Security (important)
+        // Email exist kare ya na kare, response same
         if (userOpt.isEmpty()) {
-            return "If email exists, link sent!";
+            return Map.of("message", GENERIC_MSG);
         }
 
         // Old tokens delete
@@ -190,26 +198,32 @@ public class AuthService {
 
         tokenRepository.save(resetToken);
 
-        String link = "http://localhost:5173/reset-password?token=" + token;
+        // DEV ONLY: token seedha frontend ko, email nahi
+        if (devDirectReset) {
+            return Map.of("message", GENERIC_MSG, "resetToken", token);
+        }
 
-        // TODO: Email send karo
-        System.out.println("RESET LINK: " + link);
-
-        return "Reset link sent!";
+        // Production me email service nahi hai, isliye token kisi ko nahi dete
+        log.warn("Password reset requested but email sending is not configured");
+        return Map.of("message", GENERIC_MSG);
     }
 
     // 🔹 2. Reset Password
     public String resetPassword(String token, String newPassword) {
 
+        if (newPassword == null || newPassword.length() < 6) {
+            throw new BadRequestException("Password must be at least 6 characters");
+        }
+
         PasswordResetToken resetToken = tokenRepository.findByToken(token)
-                .orElseThrow(() -> new RuntimeException("Invalid token"));
+                .orElseThrow(() -> new BadRequestException("Invalid or expired reset link"));
 
         if (resetToken.getExpiryTime().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Token expired");
+            throw new BadRequestException("Invalid or expired reset link");
         }
 
         User user = userRepository.findByEmail(resetToken.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new BadRequestException("Invalid or expired reset link"));
 
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);

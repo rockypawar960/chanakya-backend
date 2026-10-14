@@ -64,7 +64,7 @@ public class SecurityConfig {
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
 
                         // Health check
-                        .requestMatchers("/health", "/actuator/health").permitAll()
+                        .requestMatchers("/api/ping","ping", "/health", "/actuator/health").permitAll()
 
                         // Assessment endpoints - public GET, protected POST
                         .requestMatchers(HttpMethod.GET, "/api/assessments/questions", "/assessments/questions").permitAll()

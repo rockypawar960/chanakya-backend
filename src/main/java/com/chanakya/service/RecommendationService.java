@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -21,10 +22,14 @@ public class RecommendationService {
     private final CareerAttributeRepository careerAttributeRepository;
 
     public List<RecommendationDTO> generateRecommendations(Assessment assessment) {
-        // 1. Purani recommendations deactivate ya delete karein
-//        recommendationRepository.deleteByAssessmentId(assessment.getId());
 
-        Map<String, Integer> userBuckets = assessment.getBucketScores();
+        // 1. Purani recommendations hatao (duplicate rows / unique constraint se bachne ke liye)
+        recommendationRepository.deleteByAssessmentId(assessment.getId());
+        recommendationRepository.flush(); // delete DB me pehle pahunche, phir naye insert
+
+        // 2. Bucket keys ko uppercase me normalize karo (lookup mismatch na ho)
+        Map<String, Integer> userBuckets = normalizeBuckets(assessment.getBucketScores());
+
         List<Career> careers = careerRepository.findByIsActiveTrueOrderByPopularityScoreDesc();
         List<Recommendation> recommendations = new ArrayList<>();
 
@@ -37,25 +42,26 @@ public class RecommendationService {
                     .assessment(assessment)
                     .career(career)
                     .matchScore(matchScore)
-                    .reasoning("Based on your strengths in " + String.join(", ", userBuckets.keySet()))
+                    .reasoning(buildReasoning(userBuckets))
                     .isActive(true)
                     .build());
         }
 
-        // Sorting & Limiting (Top 3)
+        // 3. Sorting & Limiting (Top 3)
         List<Recommendation> topRecommendations = recommendations.stream()
                 .sorted((r1, r2) -> Double.compare(r2.getMatchScore(), r1.getMatchScore()))
                 .limit(3)
                 .toList();
 
-        recommendationRepository.saveAll(topRecommendations);
-        return topRecommendations.stream().map(this::mapToDTO).toList();
+        List<Recommendation> saved = recommendationRepository.saveAll(topRecommendations);
+        return saved.stream().map(this::mapToDTO).toList();
     }
 
     private double calculateMatchScore(Map<String, Integer> userBuckets, Career career) {
         if (userBuckets == null || userBuckets.isEmpty()) return 0.0;
 
-        List<CareerAttribute> attributes = careerAttributeRepository.findByCareerIdAndIsActiveTrue(career.getId());
+        List<CareerAttribute> attributes =
+                careerAttributeRepository.findByCareerIdAndIsActiveTrue(career.getId());
         if (attributes == null || attributes.isEmpty()) return 0.0;
 
         double weightedScore = 0.0;
@@ -65,7 +71,7 @@ public class RecommendationService {
             if (attr.getBucket() == null) continue;
 
             String bucketName = attr.getBucket().getName().toUpperCase().trim();
-            double weight = (double) attr.getWeight(); // Use double for weight too
+            double weight = (double) attr.getWeight();
 
             int userScore = userBuckets.getOrDefault(bucketName, 0);
 
@@ -82,9 +88,31 @@ public class RecommendationService {
         return Math.min(score, 100.0); // 100 se upar na jaye
     }
 
-    /**
-     * 🔄 Entity ko DTO mein badalne ke liye helper method
-     */
+    /** Bucket names ko uppercase + trim karke naya map banata hai */
+    private Map<String, Integer> normalizeBuckets(Map<String, Integer> raw) {
+        Map<String, Integer> result = new HashMap<>();
+        if (raw == null) return result;
+
+        raw.forEach((key, value) -> {
+            if (key != null && value != null) {
+                result.put(key.toUpperCase().trim(), value);
+            }
+        });
+        return result;
+    }
+
+    /** Sirf user ke top 3 strong buckets reasoning me dikhao */
+    private String buildReasoning(Map<String, Integer> userBuckets) {
+        String topBuckets = userBuckets.entrySet().stream()
+                .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+                .limit(3)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.joining(", "));
+
+        return "Based on your strengths in " + topBuckets;
+    }
+
+    /** Entity ko DTO mein badalne ke liye helper method */
     private RecommendationDTO mapToDTO(Recommendation r) {
         return RecommendationDTO.builder()
                 .id(r.getId())
@@ -96,18 +124,17 @@ public class RecommendationService {
                 .build();
     }
 
-    // 1. Ye method Controller mang raha hai
-    @Transactional
+    // Controller ke liye
     public List<RecommendationDTO> getRecommendationsByAssessmentId(Long assessmentId) {
-        return recommendationRepository.findByAssessmentIdAndIsActiveTrueOrderByMatchScoreDesc(assessmentId)
+        return recommendationRepository
+                .findByAssessmentIdAndIsActiveTrueOrderByMatchScoreDesc(assessmentId)
                 .stream().map(this::mapToDTO).toList();
     }
 
-    // 2. Ye method bhi Controller mang raha hai
+    // Controller ke liye
     public List<RecommendationDTO> getRecommendationsByUserId(Long userId) {
-        return recommendationRepository.findByUserIdAndIsActiveTrueOrderByMatchScoreDesc(userId)
+        return recommendationRepository
+                .findByUserIdAndIsActiveTrueOrderByMatchScoreDesc(userId)
                 .stream().map(this::mapToDTO).toList();
     }
-
-
 }

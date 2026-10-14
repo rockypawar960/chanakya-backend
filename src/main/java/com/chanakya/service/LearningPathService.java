@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static com.chanakya.entity.UserLearningPath.LearningPathStatus.ACTIVE;
 
@@ -21,16 +20,14 @@ import static com.chanakya.entity.UserLearningPath.LearningPathStatus.ACTIVE;
 @Slf4j
 public class LearningPathService {
 
-
     private final LearningPathRepository pathRepo;
     private final UserLearningPathRepository userLearningPathRepository;
     private final UserRepository userRepository;
     private final GeminiAgentService geminiAgentService;
-    private final PromptBuilderService promptBuilderService;  // ← builds prompt from DB
+    private final PromptBuilderService promptBuilderService;  // builds prompt from DB
 
     @Transactional(readOnly = true)
     public LearningPathDTO getCurrentActivePath(Long userId) {
-
 
         UserLearningPath userPath =
                 userLearningPathRepository
@@ -38,28 +35,28 @@ public class LearningPathService {
                         .orElseThrow(() ->
                                 new RuntimeException("No active learning path found"));
 
-        return getPathWithSteps(
-                userPath.getLearningPath().getId()
-        );
+        return getPathWithSteps(userPath.getLearningPath().getId());
     }
 
-
-    // ─── EXISTING: get by pathId ─────────────────────────────────────────────
+    // ─── get by pathId ───────────────────────────────────────────────────────
     public LearningPathDTO getPathWithSteps(Long pathId) {
         LearningPath path = pathRepo.findById(pathId)
                 .orElseThrow(() -> new RuntimeException("Path not found"));
         return convertToDTO(path);
     }
 
-    // ─── EXISTING: get by careerId ───────────────────────────────────────────
+    // ─── get by careerId ─────────────────────────────────────────────────────
     public LearningPathDTO getPathWithStepsByCareerId(Long carrierId) {
         List<LearningPath> paths = pathRepo.findByCareerId(carrierId);
-        LearningPath path = paths.get(0);
-        return convertToDTO(path);
+
+        if (paths.isEmpty()) {
+            throw new RuntimeException("Learning path not found for careerId=" + carrierId);
+        }
+
+        return convertToDTO(paths.get(0));
     }
 
-    //  ─── Set Current active path ───────────────────────────
-
+    // ─── Set current active path ─────────────────────────────────────────────
     @Transactional
     public void setCurrentPath(Long userId, Long pathId) {
 
@@ -69,38 +66,15 @@ public class LearningPathService {
         LearningPath path = pathRepo.findById(pathId)
                 .orElseThrow(() -> new RuntimeException("Path not found"));
 
-        // Old current path remove
-        userLearningPathRepository.clearCurrentPath(userId);
+        markAsCurrent(userId, user, path);
+    }
 
-        // Check already exists
-        UserLearningPath userPath =
-                userLearningPathRepository
-                        .findByUserIdAndLearningPathId(userId, pathId)
-                        .orElse(null);
-
-        if (userPath == null) {
-            userPath = UserLearningPath.builder()
-                    .user(user)
-                    .learningPath(path)
-                    .status(ACTIVE)
-                    .progressPercentage(0)
-                    .isCurrent(true)
-                    .build();
-        } else {
-            userPath.setCurrent(true);
-        }
-
-        userLearningPathRepository.save(userPath);
-        }
-
-    // ─── NEW: Frontend sends only userId + careerId ───────────────────────────
+    // ─── Frontend sends only userId + careerId ───────────────────────────────
     // Backend builds prompt from recommendation → Gemini generates → saves to DB
     @Transactional
     public LearningPathDTO generateAndSave(Long userId, Long careerId) {
 
-        // ==========================
         // STEP 1: Check existing path
-        // ==========================
         List<LearningPath> existingPaths = pathRepo.findByCareerId(careerId);
 
         LearningPath path;
@@ -108,7 +82,6 @@ public class LearningPathService {
         if (!existingPaths.isEmpty()) {
 
             log.info("Existing learning path found for careerId={}", careerId);
-
             path = existingPaths.get(0);
 
         } else {
@@ -118,7 +91,7 @@ public class LearningPathService {
             // Build prompt
             String prompt = promptBuilderService.buildPrompt(userId, careerId);
 
-            // Gemini Generate
+            // Gemini generate
             LearningPathDTO aiDto =
                     geminiAgentService.generateLearningPath(careerId, prompt);
 
@@ -152,29 +125,37 @@ public class LearningPathService {
             log.info("Generated and saved new path id={}", path.getId());
         }
 
-        // ==========================
-        // STEP 2: Set as Current Path
-        // ==========================
+        // STEP 2: Set as current path (duplicate-safe)
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        userLearningPathRepository.clearCurrentPath(userId);
+        markAsCurrent(userId, user, path);
 
-        UserLearningPath userPath = UserLearningPath.builder()
-                .user(user)
-                .learningPath(path)
-                .status(ACTIVE)
-                .progressPercentage(0)
-                .isCurrent(true)
-                .build();
-
-        userLearningPathRepository.save(userPath);
-
-        log.info("Current path updated. userId={} pathId={}",
-                userId, path.getId());
+        log.info("Current path updated. userId={} pathId={}", userId, path.getId());
 
         return convertToDTO(path);
     }
+
+    // ─── Common logic: row hai to update, nahi hai to insert ─────────────────
+    private void markAsCurrent(Long userId, User user, LearningPath path) {
+
+        // purane current path ko hatao
+        userLearningPathRepository.clearCurrentPath(userId);
+
+        UserLearningPath userPath = userLearningPathRepository
+                .findByUserIdAndLearningPathId(userId, path.getId())
+                .orElseGet(() -> UserLearningPath.builder()
+                        .user(user)
+                        .learningPath(path)
+                        .status(ACTIVE)
+                        .progressPercentage(0)
+                        .isCurrent(true)
+                        .build());
+
+        userPath.setCurrent(true);
+        userLearningPathRepository.save(userPath);
+    }
+
     // ─── DTO converter ───────────────────────────────────────────────────────
     private LearningPathDTO convertToDTO(LearningPath path) {
         return LearningPathDTO.builder()
